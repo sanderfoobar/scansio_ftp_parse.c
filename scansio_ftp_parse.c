@@ -5,6 +5,7 @@
 // usage: ./scansio_ftp_parse <path_to_extracted_file>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
@@ -16,7 +17,7 @@ int max_linecount = 100000;
 // in the current directory.
 const char outfile_dir[] = "";
 
-// do not touch
+// do not touch -- mark as static?
 int bufSize = 2048;
 int outfiles = 1;
 char scanio_date[15];
@@ -41,17 +42,29 @@ FILE* rtn_write_fp(FILE* fp_write) {
     fclose(fp_write);
   }
 
+  /* I don't _really_ know if we need to manually allocate a new
+   * buffer each time; could just make it static and reuse the same
+   * allocation, or honestly just stack allocate a fixed buffer.
+   */
   size_t outfile_len = strlen(outfile_dir) + strlen(scanio_date) + (floor(log10(abs(outfiles))) + 1) + 5;
   char *outfile_tmp = malloc(outfile_len);
 
+  /* Honestly, you could just as easily use snprintf here.
+   * also, whilst not critical, using the *n* variants of
+   * strcpy, would be nice
+   */
   strcpy(outfile_tmp, outfile_dir);
   sprintf(outfile_tmp, "%s%s_%d.txt", outfile_dir, scanio_date, outfiles);
-  outfile_tmp[outfile_len+1] = "\0";
+  outfile_tmp[outfile_len+1] = '\0'; // did you really mean "\0"? that's a string with two nulls...
 
   outfiles += 1;
 
-  printf("writing: %s\n", outfile_tmp, strlen(outfile_tmp));
-  return fopen(outfile_tmp, "w");
+  printf("writing: %s\n", outfile_tmp);
+
+  /* probably should check the returned value here as well... */
+  fp_tmp = fopen(outfile_tmp, "w");
+  free(outfile_tmp);
+  return fp_tmp;    
 }
 
 void set_outfile_name(char *infile){
@@ -69,16 +82,16 @@ void set_outfile_name(char *infile){
   if(strstr(infile, "-21-ftp-banner-full_ipv4-") != NULL) {
     char *token = strtok(infile+41, "-");
 
-    strcpy(scanio_date, token);
+    strncpy(scanio_date, token, 15);
   } else {
-    strcpy(scanio_date, "unknown\0");
+    strncpy(scanio_date, "unknown", 15); // you don't need an explicit '\0'
   }
 }
 
 int main(int argc, char *argv[])
 {
   if (argc <= 1) {
-    printf("usage: %s $FILE", argv[0]);
+    printf("usage: %s $FILE\n", argv[0]);
     return 0;
   }
 
